@@ -1,58 +1,213 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Payment API
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+REST API для створення платіжних заявок та обробки callback-повідомлень від платіжного провайдера.
 
-## About Laravel
+## 1. Вимоги
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+- PHP 8.3+
+- Composer
+- MySQL 8+
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## 2. Встановлення та запуск
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
-
-## Learning Laravel
-
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
-
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
-
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+Клонувати проєкт:
 
 ```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+git clone https://github.com/TheSimpleCoder/LaravelCashierTest.git
+cd LaravelCashierTest
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+Встановити залежності:
 
-## Contributing
+```bash
+composer install
+```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+Створити файл конфігурації:
 
-## Code of Conduct
+```bash
+cp .env.example .env
+```
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+Згенерувати ключ Laravel:
 
-## Security Vulnerabilities
+```bash
+php artisan key:generate
+```
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+Налаштувати підключення до MySQL у `.env`:
 
-## License
+```env
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=money
+DB_USERNAME=root
+DB_PASSWORD=
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+PAYMENT_WEBHOOK_SECRET=your-super-secret-key
+```
+
+Створити базу даних `money` у MySQL.
+
+Виконати міграції:
+
+```bash
+php artisan migrate
+```
+
+Запустити локальний сервер:
+
+```bash
+php artisan serve 
+```
+або краще
+```bash
+php artisan dev
+```
+
+API буде доступне за адресою:
+
+`http://127.0.0.1:8000/api`
+
+## 3. API Endpoints
+
+### Створення заявки
+
+`POST /api/orders`
+
+Приклад запиту:
+
+```json
+{
+    "merchant_id": 1,
+    "amount": "100.00",
+    "currency": "USD"
+}
+```
+
+Успішна відповідь:
+
+```json
+{
+    "order_id": 1
+}
+```
+
+Заявка створюється зі статусом `pending`.
+
+### Обробка callback
+
+`POST /api/callback`
+
+Тут краще і зручніше використати файл **public/test.php**
+
+Приклад payload:
+
+```json
+{
+    "event_id": "evt_123456",
+    "order_id": 1,
+    "status": "paid",
+    "amount": "100.00",
+    "currency": "USD"
+}
+```
+
+Доступні статуси:
+
+- `paid` — успішна оплата, створюється фінансова проводка.
+- `failed` — невдала оплата, фінансова проводка не створюється.
+- `refunded` — повернення коштів, створюється зворотна проводка.
+
+Для автентифікації callback необхідно передати HTTP-заголовок:
+
+```http
+X-Signature: <HMAC-SHA256>
+```
+
+Підпис генерується на основі оригінального JSON body та секретного ключа з `PAYMENT_WEBHOOK_SECRET`.
+
+Приклад генерації підпису на PHP:
+
+```php
+$signature = hash_hmac(
+    'sha256',
+    $json,
+    $secret
+);
+```
+
+Важливо: підписувати потрібно саме той JSON-рядок, який відправляється в HTTP-запиті.
+
+## 4. Фінансові ризики та захист
+
+### 4.1. HMAC-SHA256
+
+Кожен callback перевіряється за допомогою HMAC-SHA256.
+
+Це захищає API від підроблених callback-запитів.
+
+Секретний ключ зберігається в `.env` і не повинен потрапляти в Git або відкритий доступ.
+
+Для порівняння підписів використовується `hash_equals()`.
+
+### 4.2. Ідемпотентність
+
+Кожна подія має унікальний `event_id`.
+
+Унікальні індекси в базі даних не дозволяють повторно обробити одну й ту саму подію.
+
+Додатково перевіряється поточний статус заявки, щоб повторна оплата з іншим `event_id` не створила повторне нарахування.
+
+### 4.3. Захист від від'ємного балансу
+
+Баланс мерчанта розраховується на основі записів у `merchant_ledger`.
+
+Перед фінансовою операцією перевіряється доступний баланс.
+
+Якщо коштів недостатньо для повернення, операція відхиляється.
+
+Баланс не зберігається в окремому полі, яке можна випадково розсинхронізувати з історією проводок.
+
+### 4.4. Транзакції та блокування
+
+Фінансові операції виконуються всередині DB-транзакцій.
+
+Для блокування конкурентних операцій одного мерчанта використовується `lockForUpdate()`.
+
+Це зменшує ризик одночасного списання коштів та виникнення від'ємного балансу.
+
+Для коректної роботи потрібна СУБД із підтримкою транзакцій та блокувань рядків, наприклад MySQL InnoDB.
+
+### 4.5. Перевірка суми та валюти
+
+Перед обробкою callback перевіряються:
+
+- існування заявки;
+- відповідність суми заявці;
+- відповідність валюти;
+- допустимість переходу між статусами.
+
+Це не дозволяє провести оплату або повернення на неправильну суму чи в іншій валюті.
+
+### 4.6. Точність грошових розрахунків
+
+Для фінансових розрахунків не рекомендується використовувати `float`.
+
+Грошові суми слід обробляти як десяткові рядки або цілі числа в мінімальних одиницях валюти (наприклад, центи).
+
+Це дозволяє уникнути помилок двійкової арифметики з плаваючою комою.
+
+Поточна реалізація розрахована на валюти з двома знаками після коми. Для валют з іншою точністю потрібна окрема логіка.
+
+## 5. Структура фінансових даних
+
+Основні таблиці:
+
+- `merchants` — мерчанти.
+- `orders` — платіжні заявки.
+- `callback_events` — оброблені callback-події.
+- `merchant_ledger` — фінансові проводки.
+
+Баланс мерчанта визначається як сума його проводок з урахуванням валюти та типу операції.
