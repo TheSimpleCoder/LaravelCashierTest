@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('orders', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('merchant_id');
-            $table->foreignId('merchant_id')
+            $table->foreign('merchant_id')
                 ->references('id')
                 ->on('merchants')
                 ->cascadeOnDelete();
